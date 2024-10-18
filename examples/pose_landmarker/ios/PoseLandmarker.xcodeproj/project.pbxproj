@@ -545,7 +545,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = PSCHSZNV44;
+				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = PoseLandmarker/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "This app uses camera to get pose landmarks that appear in the camera feed.";
