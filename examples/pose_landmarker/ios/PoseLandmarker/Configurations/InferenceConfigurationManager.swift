@@ -22,14 +22,22 @@ import Foundation
 class InferenceConfigurationManager: NSObject {
 
   var model: Model = DefaultConstants.model {
+      didSet { postConfigChangedNotification() }
+    }
+  
+  var delegate: HolisticLandmarkerDelegate = DefaultConstants.delegate {
     didSet { postConfigChangedNotification() }
   }
 
-  var delegate: PoseLandmarkerDelegate = DefaultConstants.delegate {
+  var minFaceDetectionConfidence: Float = DefaultConstants.minFaceDetectionConfidence {
     didSet { postConfigChangedNotification() }
   }
 
-  var numPoses: Int = DefaultConstants.numPoses {
+  var minFaceSuppressionThreshold: Float = DefaultConstants.minFaceSuppressionThreshold {
+    didSet { postConfigChangedNotification() }
+  }
+
+  var minFacePresenceConfidence: Float = DefaultConstants.minFacePresenceConfidence {
     didSet { postConfigChangedNotification() }
   }
 
@@ -37,11 +45,23 @@ class InferenceConfigurationManager: NSObject {
     didSet { postConfigChangedNotification() }
   }
 
+  var minPoseSuppressionThreshold: Float = DefaultConstants.minPoseSuppressionThreshold {
+    didSet { postConfigChangedNotification() }
+  }
+
   var minPosePresenceConfidence: Float = DefaultConstants.minPosePresenceConfidence {
     didSet { postConfigChangedNotification() }
   }
-  
-  var minTrackingConfidence: Float = DefaultConstants.minTrackingConfidence {
+
+  var minHandLandmarksConfidence: Float = DefaultConstants.minHandLandmarksConfidence {
+    didSet { postConfigChangedNotification() }
+  }
+
+  var outputFaceBlendshapes: Bool = DefaultConstants.outputFaceBlendshapes {
+    didSet { postConfigChangedNotification() }
+  }
+
+  var outputPoseSegmentationMasks: Bool = DefaultConstants.outputPoseSegmentationMasks {
     didSet { postConfigChangedNotification() }
   }
 
@@ -53,5 +73,4 @@ class InferenceConfigurationManager: NSObject {
     NotificationCenter.default
       .post(name: InferenceConfigurationManager.notificationName, object: nil)
   }
-
 }

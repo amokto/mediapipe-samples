@@ -31,7 +31,7 @@ class CameraViewController: UIViewController {
   @IBOutlet weak var previewView: UIView!
   @IBOutlet weak var cameraUnavailableLabel: UILabel!
   @IBOutlet weak var resumeButton: UIButton!
-  @IBOutlet weak var overlayView: OverlayView!
+  @IBOutlet weak var overlayView: HolisticOverlayView!
   
   private var isSessionRunning = false
   private var isObserving = false
@@ -41,22 +41,22 @@ class CameraViewController: UIViewController {
   // Handles all the camera related functionality
   private lazy var cameraFeedService = CameraFeedService(previewView: previewView)
   
-  private let poseLandmarkerServiceQueue = DispatchQueue(
-    label: "com.google.mediapipe.cameraController.poseLandmarkerServiceQueue",
+  private let holisticLandmarkerServiceQueue = DispatchQueue(
+    label: "com.google.mediapipe.cameraController.holisticLandmarkerServiceQueue",
     attributes: .concurrent)
   
   // Queuing reads and writes to poseLandmarkerService using the Apple recommended way
   // as they can be read and written from multiple threads and can result in race conditions.
-  private var _poseLandmarkerService: PoseLandmarkerService?
-  private var poseLandmarkerService: PoseLandmarkerService? {
+  private var _holisticLandmarkerService: HolisticLandmarkerService?
+  private var holisticLandmarkerService: HolisticLandmarkerService? {
     get {
-      poseLandmarkerServiceQueue.sync {
-        return self._poseLandmarkerService
+      holisticLandmarkerServiceQueue.sync {
+        return self._holisticLandmarkerService
       }
     }
     set {
-      poseLandmarkerServiceQueue.async(flags: .barrier) {
-        self._poseLandmarkerService = newValue
+      holisticLandmarkerServiceQueue.async(flags: .barrier) {
+        self._holisticLandmarkerService = newValue
       }
     }
   }
@@ -64,7 +64,7 @@ class CameraViewController: UIViewController {
 #if !targetEnvironment(simulator)
   override func viewWillAppear(_ animated: Bool) {
     super.viewWillAppear(animated)
-    initializePoseLandmarkerServiceOnSessionResumption()
+    initializeHolisticLandmarkerServiceOnSessionResumption()
     cameraFeedService.startLiveCameraSession {[weak self] cameraConfiguration in
       DispatchQueue.main.async {
         switch cameraConfiguration {
@@ -82,7 +82,7 @@ class CameraViewController: UIViewController {
   override func viewWillDisappear(_ animated: Bool) {
     super.viewWillDisappear(animated)
     cameraFeedService.stopSession()
-    clearPoseLandmarkerServiceOnSessionInterruption()
+    clearHolisticLandmarkerServiceOnSessionInterruption()
   }
   
   override func viewDidLoad() {
@@ -108,7 +108,7 @@ class CameraViewController: UIViewController {
       if isSessionRunning {
         self?.resumeButton.isHidden = true
         self?.cameraUnavailableLabel.isHidden = true
-        self?.initializePoseLandmarkerServiceOnSessionResumption()
+        self?.initializeHolisticLandmarkerServiceOnSessionResumption()
       }
     }
   }
@@ -141,33 +141,37 @@ class CameraViewController: UIViewController {
     self.present(alert, animated: true)
   }
   
-  private func initializePoseLandmarkerServiceOnSessionResumption() {
-    clearAndInitializePoseLandmarkerService()
+  private func initializeHolisticLandmarkerServiceOnSessionResumption() {
+    clearAndInitializeHolisticLandmarkerService()
     startObserveConfigChanges()
   }
   
-  @objc private func clearAndInitializePoseLandmarkerService() {
-    poseLandmarkerService = nil
-    poseLandmarkerService = PoseLandmarkerService
-      .liveStreamPoseLandmarkerService(
+  @objc private func clearAndInitializeHolisticLandmarkerService() {
+    holisticLandmarkerService = nil
+    holisticLandmarkerService = HolisticLandmarkerService
+      .liveStreamHolisticLandmarkerService(
         modelPath: InferenceConfigurationManager.sharedInstance.model.modelPath,
-        numPoses: InferenceConfigurationManager.sharedInstance.numPoses,
+        minFaceDetectionConfidence: InferenceConfigurationManager.sharedInstance.minFaceDetectionConfidence,
+        minFaceSuppressionThreshold: InferenceConfigurationManager.sharedInstance.minFaceSuppressionThreshold,
+        minFacePresenceConfidence: InferenceConfigurationManager.sharedInstance.minFacePresenceConfidence,
         minPoseDetectionConfidence: InferenceConfigurationManager.sharedInstance.minPoseDetectionConfidence,
+        minPoseSuppressionThreshold: InferenceConfigurationManager.sharedInstance.minPoseSuppressionThreshold,
         minPosePresenceConfidence: InferenceConfigurationManager.sharedInstance.minPosePresenceConfidence,
-        minTrackingConfidence: InferenceConfigurationManager.sharedInstance.minTrackingConfidence,
-        liveStreamDelegate: self,
-        delegate: InferenceConfigurationManager.sharedInstance.delegate)
+        minHandLandmarksConfidence: InferenceConfigurationManager.sharedInstance.minHandLandmarksConfidence,
+        outputFaceBlendshapes: InferenceConfigurationManager.sharedInstance.outputFaceBlendshapes,
+        outputPoseSegmentationMasks: InferenceConfigurationManager.sharedInstance.outputPoseSegmentationMasks,
+        liveStreamDelegate: self)
   }
   
-  private func clearPoseLandmarkerServiceOnSessionInterruption() {
+  private func clearHolisticLandmarkerServiceOnSessionInterruption() {
     stopObserveConfigChanges()
-    poseLandmarkerService = nil
+    holisticLandmarkerService = nil
   }
   
   private func startObserveConfigChanges() {
     NotificationCenter.default
       .addObserver(self,
-                   selector: #selector(clearAndInitializePoseLandmarkerService),
+                   selector: #selector(clearAndInitializeHolisticLandmarkerService),
                    name: InferenceConfigurationManager.notificationName,
                    object: nil)
     isObserving = true
@@ -190,7 +194,7 @@ extension CameraViewController: CameraFeedServiceDelegate {
     let currentTimeMs = Date().timeIntervalSince1970 * 1000
     // Pass the pixel buffer to mediapipe
     backgroundQueue.async { [weak self] in
-      self?.poseLandmarkerService?.detectAsync(
+      self?.holisticLandmarkerService?.detectAsync(
         sampleBuffer: sampleBuffer,
         orientation: orientation,
         timeStamps: Int(currentTimeMs))
@@ -205,48 +209,53 @@ extension CameraViewController: CameraFeedServiceDelegate {
     } else {
       cameraUnavailableLabel.isHidden = false
     }
-    clearPoseLandmarkerServiceOnSessionInterruption()
+    clearHolisticLandmarkerServiceOnSessionInterruption()
   }
   
   func sessionInterruptionEnded() {
     // Updates UI once session interruption has ended.
     cameraUnavailableLabel.isHidden = true
     resumeButton.isHidden = true
-    initializePoseLandmarkerServiceOnSessionResumption()
+    initializeHolisticLandmarkerServiceOnSessionResumption()
   }
   
   func didEncounterSessionRuntimeError() {
     // Handles session run time error by updating the UI and providing a button if session can be
     // manually resumed.
     resumeButton.isHidden = false
-    clearPoseLandmarkerServiceOnSessionInterruption()
+    clearHolisticLandmarkerServiceOnSessionInterruption()
   }
 }
 
 // MARK: PoseLandmarkerServiceLiveStreamDelegate
-extension CameraViewController: PoseLandmarkerServiceLiveStreamDelegate {
+extension CameraViewController: HolisticLandmarkerServiceLiveStreamDelegate {
 
-  func poseLandmarkerService(
-    _ poseLandmarkerService: PoseLandmarkerService,
-    didFinishDetection result: ResultBundle?,
-    error: Error?) {
-      DispatchQueue.main.async { [weak self] in
-        guard let weakSelf = self else { return }
-        weakSelf.inferenceResultDeliveryDelegate?.didPerformInference(result: result)
-        guard let poseLandmarkerResult = result?.poseLandmarkerResults.first as? PoseLandmarkerResult else { return }
-        let imageSize = weakSelf.cameraFeedService.videoResolution
-        let poseOverlays = OverlayView.poseOverlays(
-            fromMultiplePoseLandmarks: poseLandmarkerResult.landmarks,
-          inferredOnImageOfSize: imageSize,
-          ovelayViewSize: weakSelf.overlayView.bounds.size,
-          imageContentMode: weakSelf.overlayView.imageContentMode,
-          andOrientation: UIImage.Orientation.from(
-            deviceOrientation: UIDevice.current.orientation))
-        weakSelf.overlayView.draw(poseOverlays: poseOverlays,
-                         inBoundsOfContentImageOfSize: imageSize,
-                         imageContentMode: weakSelf.cameraFeedService.videoGravity.contentMode)
+  func holisticLandmarkerService(
+          _ holisticLandmarkerService: HolisticLandmarkerService,
+          didFinishDetection result: ResultBundle?,
+          error: Error?
+      ) {
+          DispatchQueue.main.async { [weak self] in
+              guard let weakSelf = self else { return }
+              weakSelf.inferenceResultDeliveryDelegate?.didPerformInference(result: result)
+              guard let holisticLandmarkerResult = result?.holisticLandmarkerResults.first else { return }
+              
+              let imageSize = weakSelf.cameraFeedService.videoResolution
+              if let holisticOverlay = HolisticOverlayView.holisticOverlay(
+                  fromHolisticResult: holisticLandmarkerResult,
+                  inferredOnImageOfSize: imageSize,
+                  overlayViewSize: weakSelf.overlayView.bounds.size,
+                  imageContentMode: weakSelf.overlayView.imageContentMode,
+                  andOrientation: UIImage.Orientation.from(
+                      deviceOrientation: UIDevice.current.orientation)) {
+              
+                weakSelf.overlayView.draw(
+                      holisticOverlays: [holisticOverlay],
+                      inBoundsOfContentImageOfSize: imageSize,
+                      imageContentMode: weakSelf.cameraFeedService.videoGravity.contentMode)
+              }
+          }
       }
-    }
 }
 
 // MARK: - AVLayerVideoGravity Extension

@@ -26,61 +26,42 @@ struct DefaultConstants {
 
   static let lineColor = UIColor(red: 0, green: 127/255.0, blue: 139/255.0, alpha: 1)
 
-  static var numPoses: Int = 1
+  static var minFaceDetectionConfidence: Float = 0.5
+  static var minFaceSuppressionThreshold: Float = 0.3
+  static var minFacePresenceConfidence: Float = 0.5
   static var minPoseDetectionConfidence: Float = 0.5
+  static var minPoseSuppressionThreshold: Float = 0.3
   static var minPosePresenceConfidence: Float = 0.5
-  static var minTrackingConfidence: Float = 0.5
-  static let model: Model = .pose_landmarker_lite
-  static let delegate: PoseLandmarkerDelegate = .CPU
+  static var minHandLandmarksConfidence: Float = 0.5
+  static let outputFaceBlendshapes: Bool = true
+  static let outputPoseSegmentationMasks: Bool = false
+  static let delegate: HolisticLandmarkerDelegate = .CPU
+  static let model: Model = .holisticLandmarker
 }
 
 // MARK: Model
 enum Model: Int, CaseIterable {
-  case pose_landmarker_lite
-  case pose_landmarker_full
-  case pose_landmarker_heavy
+  case holisticLandmarker
 
   var name: String {
-    switch self {
-    case .pose_landmarker_lite:
-      return "Pose landmarker (lite)"
-    case .pose_landmarker_full:
-      return "Pose landmarker (Full)"
-    case .pose_landmarker_heavy:
-      return "Pose landmarker (Heavy)"
-    }
+    return "Holistic Landmarker"
   }
 
   var modelPath: String? {
-    switch self {
-    case .pose_landmarker_lite:
-      return Bundle.main.path(
-        forResource: "pose_landmarker_lite", ofType: "task")
-    case .pose_landmarker_full:
-      return Bundle.main.path(
-        forResource: "pose_landmarker_full", ofType: "task")
-    case .pose_landmarker_heavy:
-      return Bundle.main.path(
-        forResource: "pose_landmarker_heavy", ofType: "task")
-    }
+    return Bundle.main.path(forResource: "holistic_landmarker", ofType: "task")
   }
 
   init?(name: String) {
-    switch name {
-    case Model.pose_landmarker_lite.name:
-      self = Model.pose_landmarker_lite
-    case Model.pose_landmarker_full.name:
-      self = Model.pose_landmarker_full
-    case Model.pose_landmarker_heavy.name:
-      self = Model.pose_landmarker_heavy
-    default:
+    if name == "Holistic Landmarker" {
+      self = .holisticLandmarker
+    } else {
       return nil
     }
   }
 }
 
 // MARK: PoseLandmarkerDelegate
-enum PoseLandmarkerDelegate: CaseIterable {
+enum HolisticLandmarkerDelegate: CaseIterable {
   case GPU
   case CPU
 
@@ -104,10 +85,10 @@ enum PoseLandmarkerDelegate: CaseIterable {
 
   init?(name: String) {
     switch name {
-    case PoseLandmarkerDelegate.CPU.name:
-      self = PoseLandmarkerDelegate.CPU
-    case PoseLandmarkerDelegate.GPU.name:
-      self = PoseLandmarkerDelegate.GPU
+    case HolisticLandmarkerDelegate.CPU.name:
+      self = HolisticLandmarkerDelegate.CPU
+    case HolisticLandmarkerDelegate.GPU.name:
+      self = HolisticLandmarkerDelegate.GPU
     default:
       return nil
     }

@@ -68,8 +68,8 @@ class BottomSheetViewController: UIViewController {
   // MARK: - Private function
   private func setupUI() {
 
-    numPosesStepper.value = Double(InferenceConfigurationManager.sharedInstance.numPoses)
-    numPosesValueLabel.text = "\(InferenceConfigurationManager.sharedInstance.numPoses)"
+    numPosesStepper.value = 1
+    numPosesValueLabel.text = "1"
 
     minPoseDetectionConfidenceStepper.value = Double(InferenceConfigurationManager.sharedInstance.minPoseDetectionConfidence)
     minPoseDetectionConfidenceValueLabel.text = "\(InferenceConfigurationManager.sharedInstance.minPoseDetectionConfidence)"
@@ -77,8 +77,8 @@ class BottomSheetViewController: UIViewController {
     minPosePresenceConfidenceStepper.value = Double(InferenceConfigurationManager.sharedInstance.minPosePresenceConfidence)
     minPosePresenceConfidenceValueLabel.text = "\(InferenceConfigurationManager.sharedInstance.minPosePresenceConfidence)"
 
-    minTrackingConfidenceStepper.value = Double(InferenceConfigurationManager.sharedInstance.minTrackingConfidence)
-    minTrackingConfidenceValueLabel.text = "\(InferenceConfigurationManager.sharedInstance.minTrackingConfidence)"
+    minTrackingConfidenceStepper.value = Double(InferenceConfigurationManager.sharedInstance.minPoseDetectionConfidence)
+    minTrackingConfidenceValueLabel.text = "\(InferenceConfigurationManager.sharedInstance.minPoseDetectionConfidence)"
 
     // Choose model option
     let selectedModelAction = {(action: UIAction) in
@@ -99,7 +99,7 @@ class BottomSheetViewController: UIViewController {
     let selectedDelegateAction = {(action: UIAction) in
       self.updateDelegate(title: action.title)
     }
-    let delegateActions: [UIAction] = PoseLandmarkerDelegate.allCases.compactMap { delegate in
+    let delegateActions: [UIAction] = HolisticLandmarkerDelegate.allCases.compactMap { delegate in
       return UIAction(
         title: delegate.name,
         state: (InferenceConfigurationManager.sharedInstance.delegate == delegate) ? .on : .off,
@@ -125,7 +125,7 @@ class BottomSheetViewController: UIViewController {
   }
 
   private func updateDelegate(title: String) {
-    guard let delegate = PoseLandmarkerDelegate(name: title) else { return }
+    guard let delegate = HolisticLandmarkerDelegate(name: title) else { return }
     InferenceConfigurationManager.sharedInstance.delegate = delegate
   }
 
@@ -139,7 +139,7 @@ class BottomSheetViewController: UIViewController {
 
   @IBAction func numPosesStepperValueChanged(_ sender: UIStepper) {
     let numPoses = Int(sender.value)
-    InferenceConfigurationManager.sharedInstance.numPoses = numPoses
+    //InferenceConfigurationManager.sharedInstance.numPoses = numPoses
     numPosesValueLabel.text = "\(numPoses)"
   }
 
@@ -157,7 +157,7 @@ class BottomSheetViewController: UIViewController {
 
   @IBAction func minTrackingConfidenceStepperValueChanged(_ sender: UIStepper) {
     let minTrackingConfidence = Float(sender.value)
-    InferenceConfigurationManager.sharedInstance.minTrackingConfidence = minTrackingConfidence
+    InferenceConfigurationManager.sharedInstance.minPoseDetectionConfidence = minTrackingConfidence
     minTrackingConfidenceValueLabel.text = "\(minTrackingConfidence)"
   }
 }

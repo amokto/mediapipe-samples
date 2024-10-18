@@ -29,170 +29,170 @@ class MediaLibraryViewController: UIViewController {
     static let milliSeconds = 1000.0
     static let savedPhotosNotAvailableText = "Saved photos album is not available."
     static let mediaEmptyText =
-    "Click + to add an image or a video to begin running the pose landmark."
+    "Click + to add an image or a video to begin running the holistic landmark detection."
     static let pickFromGalleryButtonInset: CGFloat = 10.0
   }
-  // MARK: Pose Landmarker Service
-  weak var interfaceUpdatesDelegate: InterfaceUpdatesDelegate?
-  weak var inferenceResultDeliveryDelegate: InferenceResultDeliveryDelegate?
   
-  // MARK: Controllers that manage functionality
-  private lazy var pickerController = UIImagePickerController()
-  private var playerViewController: AVPlayerViewController?
-  
-  // MARK: Pose Landmarker Service
-  private var poseLandmarkerService: PoseLandmarkerService?
-  
-  // MARK: Private properties
-  private var playerTimeObserverToken : Any?
-  
-  // MARK: Storyboards Connections
-  @IBOutlet weak var overlayView: OverlayView!
-  @IBOutlet weak var pickFromGalleryButton: UIButton!
-  @IBOutlet weak var progressView: UIProgressView!
-  @IBOutlet weak var imageEmptyLabel: UILabel!
-  @IBOutlet weak var pickedImageView: UIImageView!
-  @IBOutlet weak var pickFromGalleryButtonBottomSpace: NSLayoutConstraint!
-  
-  override func viewDidLoad() {
-    super.viewDidLoad()
-  }
-  
-  override func viewWillLayoutSubviews() {
-    super.viewWillLayoutSubviews()
-    redrawBoundingBoxesForCurrentDeviceOrientation()
-  }
-  
-  override func viewWillAppear(_ animated: Bool) {
-    super.viewWillAppear(animated)
-    interfaceUpdatesDelegate?.shouldClicksBeEnabled(true)
+  // MARK: Delegates
+    weak var interfaceUpdatesDelegate: InterfaceUpdatesDelegate?
+    weak var inferenceResultDeliveryDelegate: InferenceResultDeliveryDelegate?
     
-    guard UIImagePickerController.isSourceTypeAvailable(.savedPhotosAlbum) else {
-     pickFromGalleryButton.isEnabled = false
-     self.imageEmptyLabel.text = Constants.savedPhotosNotAvailableText
-     return
-    }
-    pickFromGalleryButton.isEnabled = true
-    self.imageEmptyLabel.text = Constants.mediaEmptyText
-  }
-  
-  override func viewWillDisappear(_ animated: Bool) {
-    super.viewWillDisappear(animated)
-    clearPlayerView()
-    if poseLandmarkerService?.runningMode == .video {
-      overlayView.clear()
-    }
-    poseLandmarkerService = nil
-  }
-  
-  @IBAction func onClickPickFromGallery(_ sender: Any) {
-    interfaceUpdatesDelegate?.shouldClicksBeEnabled(true)
-    configurePickerController()
-    present(pickerController, animated: true)
-  }
+    // MARK: Controllers that manage functionality
+    private lazy var pickerController = UIImagePickerController()
+    private var playerViewController: AVPlayerViewController?
     
-  private func configurePickerController() {
-    pickerController.delegate = self
-    pickerController.sourceType = .savedPhotosAlbum
-    pickerController.mediaTypes = [UTType.image.identifier, UTType.movie.identifier]
-    pickerController.allowsEditing = false
-  }
-  
-  private func addPlayerViewControllerAsChild() {
-    guard let playerViewController = playerViewController else {
-      return
-    }
-    playerViewController.view.translatesAutoresizingMaskIntoConstraints = false
+    // MARK: Holistic Landmarker Service
+    private var holisticLandmarkerService: HolisticLandmarkerService?
     
-    self.addChild(playerViewController)
-    self.view.addSubview(playerViewController.view)
-    self.view.bringSubviewToFront(self.overlayView)
-    self.view.bringSubviewToFront(self.pickFromGalleryButton)
-    NSLayoutConstraint.activate([
-      playerViewController.view.leadingAnchor.constraint(
-        equalTo: view.leadingAnchor, constant: 0.0),
-      playerViewController.view.trailingAnchor.constraint(
-        equalTo: view.trailingAnchor, constant: 0.0),
-      playerViewController.view.topAnchor.constraint(
-        equalTo: view.topAnchor, constant: 0.0),
-      playerViewController.view.bottomAnchor.constraint(
-        equalTo: view.bottomAnchor, constant: 0.0)
-    ])
-    playerViewController.didMove(toParent: self)
-  }
-  
-  private func removePlayerViewController() {
-    defer {
-      playerViewController?.view.removeFromSuperview()
-      playerViewController?.willMove(toParent: nil)
-      playerViewController?.removeFromParent()
-    }
-    removeObservers(player: playerViewController?.player)
-    playerViewController?.player?.pause()
-    playerViewController?.player = nil
-  }
-  
-  private func removeObservers(player: AVPlayer?) {
-    guard let player = player else {
-      return
+    // MARK: Private properties
+    private var playerTimeObserverToken : Any?
+    
+    // MARK: Storyboards Connections
+    @IBOutlet weak var overlayView: HolisticOverlayView!
+    @IBOutlet weak var pickFromGalleryButton: UIButton!
+    @IBOutlet weak var progressView: UIProgressView!
+    @IBOutlet weak var imageEmptyLabel: UILabel!
+    @IBOutlet weak var pickedImageView: UIImageView!
+    @IBOutlet weak var pickFromGalleryButtonBottomSpace: NSLayoutConstraint!
+    
+    override func viewDidLoad() {
+      super.viewDidLoad()
     }
     
-    if let timeObserverToken = playerTimeObserverToken {
-      player.removeTimeObserver(timeObserverToken)
-      playerTimeObserverToken = nil
+    override func viewWillLayoutSubviews() {
+      super.viewWillLayoutSubviews()
+      redrawBoundingBoxesForCurrentDeviceOrientation()
     }
     
-  }
+    override func viewWillAppear(_ animated: Bool) {
+      super.viewWillAppear(animated)
+      interfaceUpdatesDelegate?.shouldClicksBeEnabled(true)
+      
+      guard UIImagePickerController.isSourceTypeAvailable(.savedPhotosAlbum) else {
+       pickFromGalleryButton.isEnabled = false
+       self.imageEmptyLabel.text = Constants.savedPhotosNotAvailableText
+       return
+      }
+      pickFromGalleryButton.isEnabled = true
+      self.imageEmptyLabel.text = Constants.mediaEmptyText
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+      super.viewWillDisappear(animated)
+      clearPlayerView()
+      if holisticLandmarkerService?.runningMode == .video {
+        overlayView.clear()
+      }
+      holisticLandmarkerService = nil
+    }
+    
+    @IBAction func onClickPickFromGallery(_ sender: Any) {
+      interfaceUpdatesDelegate?.shouldClicksBeEnabled(true)
+      configurePickerController()
+      present(pickerController, animated: true)
+    }
+      
+    private func configurePickerController() {
+      pickerController.delegate = self
+      pickerController.sourceType = .savedPhotosAlbum
+      pickerController.mediaTypes = [UTType.image.identifier, UTType.movie.identifier]
+      pickerController.allowsEditing = false
+    }
+    
+    private func addPlayerViewControllerAsChild() {
+      guard let playerViewController = playerViewController else {
+        return
+      }
+      playerViewController.view.translatesAutoresizingMaskIntoConstraints = false
+      
+      self.addChild(playerViewController)
+      self.view.addSubview(playerViewController.view)
+      self.view.bringSubviewToFront(self.overlayView)
+      self.view.bringSubviewToFront(self.pickFromGalleryButton)
+      NSLayoutConstraint.activate([
+        playerViewController.view.leadingAnchor.constraint(
+          equalTo: view.leadingAnchor, constant: 0.0),
+        playerViewController.view.trailingAnchor.constraint(
+          equalTo: view.trailingAnchor, constant: 0.0),
+        playerViewController.view.topAnchor.constraint(
+          equalTo: view.topAnchor, constant: 0.0),
+        playerViewController.view.bottomAnchor.constraint(
+          equalTo: view.bottomAnchor, constant: 0.0)
+      ])
+      playerViewController.didMove(toParent: self)
+    }
+    
+    private func removePlayerViewController() {
+      defer {
+        playerViewController?.view.removeFromSuperview()
+        playerViewController?.willMove(toParent: nil)
+        playerViewController?.removeFromParent()
+      }
+      removeObservers(player: playerViewController?.player)
+      playerViewController?.player?.pause()
+      playerViewController?.player = nil
+    }
+    
+    private func removeObservers(player: AVPlayer?) {
+      guard let player = player else {
+        return
+      }
+      
+      if let timeObserverToken = playerTimeObserverToken {
+        player.removeTimeObserver(timeObserverToken)
+        playerTimeObserverToken = nil
+      }
+    }
 
-  private func openMediaLibrary() {
-    configurePickerController()
-    present(pickerController, animated: true)
-  }
-  
-  private func clearPlayerView() {
-    imageEmptyLabel.isHidden = false
-    removePlayerViewController()
-  }
-  
-  private func showProgressView() {
-    guard let progressSuperview = progressView.superview?.superview else {
-      return
+    private func openMediaLibrary() {
+      configurePickerController()
+      present(pickerController, animated: true)
     }
-    progressSuperview.isHidden = false
-    progressView.progress = 0.0
-    progressView.observedProgress = nil
-    self.view.bringSubviewToFront(progressSuperview)
-  }
-  
-  private func hideProgressView() {
-    guard let progressSuperview = progressView.superview?.superview else {
-      return
+    
+    private func clearPlayerView() {
+      imageEmptyLabel.isHidden = false
+      removePlayerViewController()
     }
-    self.view.sendSubviewToBack(progressSuperview)
-    self.progressView.superview?.superview?.isHidden = true
-  }
-  
-  func layoutUIElements(withInferenceViewHeight height: CGFloat) {
-    pickFromGalleryButtonBottomSpace.constant =
-    height + Constants.pickFromGalleryButtonInset
-    view.layoutSubviews()
-  }
-  
-  func redrawBoundingBoxesForCurrentDeviceOrientation() {
-    guard let poseLandmarkerService = poseLandmarkerService,
-          poseLandmarkerService.runningMode == .image ||
-          self.playerViewController?.player?.timeControlStatus == .paused else {
-      return
+    
+    private func showProgressView() {
+      guard let progressSuperview = progressView.superview?.superview else {
+        return
+      }
+      progressSuperview.isHidden = false
+      progressView.progress = 0.0
+      progressView.observedProgress = nil
+      self.view.bringSubviewToFront(progressSuperview)
     }
-    overlayView
-      .redrawPoseOverlays(
-        forNewDeviceOrientation: UIDevice.current.orientation)
+    
+    private func hideProgressView() {
+      guard let progressSuperview = progressView.superview?.superview else {
+        return
+      }
+      self.view.sendSubviewToBack(progressSuperview)
+      self.progressView.superview?.superview?.isHidden = true
+    }
+    
+    func layoutUIElements(withInferenceViewHeight height: CGFloat) {
+      pickFromGalleryButtonBottomSpace.constant =
+      height + Constants.pickFromGalleryButtonInset
+      view.layoutSubviews()
+    }
+    
+    func redrawBoundingBoxesForCurrentDeviceOrientation() {
+      guard let holisticLandmarkerService = holisticLandmarkerService,
+        holisticLandmarkerService.runningMode == .image ||
+        self.playerViewController?.player?.timeControlStatus == .paused else {
+          return
+        }
+      overlayView
+        .redrawHolisticOverlays(
+          forNewDeviceOrientation: UIDevice.current.orientation)
+    }
+    
+    deinit {
+      playerViewController?.player?.removeTimeObserver(self)
+    }
   }
-  
-  deinit {
-    playerViewController?.player?.removeTimeObserver(self)
-  }
-}
 
 extension MediaLibraryViewController: UIImagePickerControllerDelegate, UINavigationControllerDelegate {
   
@@ -219,7 +219,7 @@ extension MediaLibraryViewController: UIImagePickerControllerDelegate, UINavigat
         imageEmptyLabel.isHidden = false
         return
       }
-      clearAndInitializePoseLandmarkerService(runningMode: .video)
+      clearAndInitializeHolisticLandmarkerService(runningMode: .video)
       let asset = AVAsset(url: mediaURL)
       Task {
         interfaceUpdatesDelegate?.shouldClicksBeEnabled(false)
@@ -230,7 +230,7 @@ extension MediaLibraryViewController: UIImagePickerControllerDelegate, UINavigat
           return
         }
         
-        let resultBundle = await self.poseLandmarkerService?.detect(
+        let resultBundle = await self.holisticLandmarkerService?.detect(
           videoAsset: asset,
           durationInMilliseconds: videoDuration * Constants.milliSeconds,
           inferenceIntervalInMilliseconds: Constants.inferenceTimeIntervalInMilliseconds)
@@ -258,13 +258,12 @@ extension MediaLibraryViewController: UIImagePickerControllerDelegate, UINavigat
       
       showProgressView()
       
-      clearAndInitializePoseLandmarkerService(runningMode: .image)
+      clearAndInitializeHolisticLandmarkerService(runningMode: .image)
       
       DispatchQueue.global(qos: .userInteractive).async { [weak self] in
         guard let weakSelf = self,
-              let resultBundle = weakSelf.poseLandmarkerService?.detect(image: image),
-              let poseLandmarkerResult = resultBundle.poseLandmarkerResults.first,
-              let poseLandmarkerResult = poseLandmarkerResult else {
+              let resultBundle = weakSelf.holisticLandmarkerService?.detect(image: image),
+              let holisticLandmarkerResult = resultBundle.holisticLandmarkerResults.first else {
           DispatchQueue.main.async {
             self?.hideProgressView()
           }
@@ -275,44 +274,21 @@ extension MediaLibraryViewController: UIImagePickerControllerDelegate, UINavigat
           weakSelf.hideProgressView()
           weakSelf.inferenceResultDeliveryDelegate?.didPerformInference(result: resultBundle)
           let imageSize = image.size
-          let poseOverlays = OverlayView.poseOverlays(
-            fromMultiplePoseLandmarks: poseLandmarkerResult.landmarks,
+          if let holisticOverlay = HolisticOverlayView.holisticOverlay(
+            fromHolisticResult: holisticLandmarkerResult,
             inferredOnImageOfSize: imageSize,
-            ovelayViewSize: weakSelf.overlayView.bounds.size,
+            overlayViewSize: weakSelf.overlayView.bounds.size,
             imageContentMode: weakSelf.overlayView.imageContentMode,
-            andOrientation: image.imageOrientation)
-            weakSelf.overlayView.draw(poseOverlays: poseOverlays,
-                           inBoundsOfContentImageOfSize: imageSize,
-                                    imageContentMode: .scaleAspectFit)
+            andOrientation: image.imageOrientation) {
+            weakSelf.overlayView.draw(
+              holisticOverlays: [holisticOverlay],
+              inBoundsOfContentImageOfSize: imageSize,
+              imageContentMode: .scaleAspectFit)
+          }
         }
       }
     default:
       break
-    }
-  }
-  
-  func clearAndInitializePoseLandmarkerService(runningMode: RunningMode) {
-    poseLandmarkerService = nil
-    switch runningMode {
-      case .image:
-      poseLandmarkerService = PoseLandmarkerService.stillImageLandmarkerService(
-        modelPath: InferenceConfigurationManager.sharedInstance.model.modelPath,
-        numPoses: InferenceConfigurationManager.sharedInstance.numPoses,
-        minPoseDetectionConfidence: InferenceConfigurationManager.sharedInstance.minPoseDetectionConfidence,
-        minPosePresenceConfidence: InferenceConfigurationManager.sharedInstance.minPosePresenceConfidence,
-        minTrackingConfidence: InferenceConfigurationManager.sharedInstance.minTrackingConfidence,
-        delegate: InferenceConfigurationManager.sharedInstance.delegate)
-      case .video:
-      poseLandmarkerService = PoseLandmarkerService.videoPoseLandmarkerService(
-        modelPath: InferenceConfigurationManager.sharedInstance.model.modelPath,
-        numPoses: InferenceConfigurationManager.sharedInstance.numPoses,
-        minPoseDetectionConfidence: InferenceConfigurationManager.sharedInstance.minPoseDetectionConfidence,
-        minPosePresenceConfidence: InferenceConfigurationManager.sharedInstance.minPosePresenceConfidence,
-        minTrackingConfidence: InferenceConfigurationManager.sharedInstance.minTrackingConfidence,
-        videoDelegate: self,
-        delegate: InferenceConfigurationManager.sharedInstance.delegate)
-      default:
-        break;
     }
   }
   
@@ -329,20 +305,23 @@ extension MediaLibraryViewController: UIImagePickerControllerDelegate, UINavigat
           guard
                 let weakSelf = self,
                 let resultBundle = resultBundle,
-                index < resultBundle.poseLandmarkerResults.count,
-                let poseLandmarkerResult = resultBundle.poseLandmarkerResults[index] else {
+                index < resultBundle.holisticLandmarkerResults.count,
+                let holisticLandmarkerResult = resultBundle.holisticLandmarkerResults[index] else {
             return
           }
           let imageSize = resultBundle.size
-          let poseOverlays = OverlayView.poseOverlays(
-            fromMultiplePoseLandmarks: poseLandmarkerResult.landmarks,
+          if let holisticOverlay = HolisticOverlayView.holisticOverlay(
+            fromHolisticResult: holisticLandmarkerResult,
             inferredOnImageOfSize: imageSize,
-            ovelayViewSize: weakSelf.overlayView.bounds.size,
+            overlayViewSize: weakSelf.overlayView.bounds.size,
             imageContentMode: weakSelf.overlayView.imageContentMode,
-            andOrientation: .up)
-          weakSelf.overlayView.draw(poseOverlays: poseOverlays,
-                           inBoundsOfContentImageOfSize: imageSize,
-                                    imageContentMode: .scaleAspectFit)
+            andOrientation: .up) {
+            
+            weakSelf.overlayView.draw(
+              holisticOverlays: [holisticOverlay],
+              inBoundsOfContentImageOfSize: imageSize,
+              imageContentMode: .scaleAspectFit)
+          }
           
           // Enable clicks on inferenceVC if playback has ended.
           if (floor(CMTimeGetSeconds(time) +
@@ -374,19 +353,98 @@ extension MediaLibraryViewController: UIImagePickerControllerDelegate, UINavigat
   }
 }
 
-extension MediaLibraryViewController: PoseLandmarkerServiceVideoDelegate {
+extension MediaLibraryViewController: HolisticLandmarkerServiceVideoDelegate {
   
-  func poseLandmarkerService(
-    _ poseLandmarkerService: PoseLandmarkerService,
+  func holisticLandmarkerService(
+    _ holisticLandmarkerService: HolisticLandmarkerService,
     didFinishDetectionOnVideoFrame index: Int) {
     progressView.observedProgress?.completedUnitCount = Int64(index + 1)
   }
   
-  func poseLandmarkerService(
-    _ poseLandmarkerService: PoseLandmarkerService,
+  func holisticLandmarkerService(
+    _ holisticLandmarkerService: HolisticLandmarkerService,
     willBeginDetection totalframeCount: Int) {
     progressView.observedProgress = Progress(totalUnitCount: Int64(totalframeCount))
   }
 }
 
-
+extension MediaLibraryViewController: HolisticLandmarkerServiceLiveStreamDelegate {
+    func holisticLandmarkerService(
+        _ holisticLandmarkerService: HolisticLandmarkerService,
+        didFinishDetection result: ResultBundle?,
+        error: Error?
+    ) {
+        DispatchQueue.main.async { [weak self] in
+            guard let weakSelf = self else { return }
+            weakSelf.inferenceResultDeliveryDelegate?.didPerformInference(result: result)
+            guard let holisticLandmarkerResult = result?.holisticLandmarkerResults.first else { return }
+            
+            let imageSize = weakSelf.pickedImageView.image?.size ?? weakSelf.view.bounds.size
+            if let holisticOverlay = HolisticOverlayView.holisticOverlay(
+                fromHolisticResult: holisticLandmarkerResult,
+                inferredOnImageOfSize: imageSize,
+                overlayViewSize: weakSelf.overlayView.bounds.size,
+                imageContentMode: weakSelf.overlayView.imageContentMode,
+                andOrientation: UIImage.Orientation.from(
+                    deviceOrientation: UIDevice.current.orientation)) {
+                
+                weakSelf.overlayView.draw(
+                    holisticOverlays: [holisticOverlay],
+                    inBoundsOfContentImageOfSize: imageSize,
+                    imageContentMode: .scaleAspectFit)
+            }
+        }
+    }
+  
+    private func clearAndInitializeHolisticLandmarkerService(runningMode: RunningMode) {
+        holisticLandmarkerService = nil
+        
+        let config = InferenceConfigurationManager.sharedInstance
+        
+        switch runningMode {
+        case .image:
+            holisticLandmarkerService = HolisticLandmarkerService.stillImageHolisticLandmarkerService(
+                modelPath: config.model.modelPath,
+                minFaceDetectionConfidence: config.minFaceDetectionConfidence,
+                minFaceSuppressionThreshold: config.minFaceSuppressionThreshold,
+                minFacePresenceConfidence: config.minFacePresenceConfidence,
+                minPoseDetectionConfidence: config.minPoseDetectionConfidence,
+                minPoseSuppressionThreshold: config.minPoseSuppressionThreshold,
+                minPosePresenceConfidence: config.minPosePresenceConfidence,
+                minHandLandmarksConfidence: config.minHandLandmarksConfidence,
+                outputFaceBlendshapes: config.outputFaceBlendshapes,
+                outputPoseSegmentationMasks: config.outputPoseSegmentationMasks
+            )
+        case .video:
+            holisticLandmarkerService = HolisticLandmarkerService.videoHolisticLandmarkerService(
+                modelPath: config.model.modelPath,
+                minFaceDetectionConfidence: config.minFaceDetectionConfidence,
+                minFaceSuppressionThreshold: config.minFaceSuppressionThreshold,
+                minFacePresenceConfidence: config.minFacePresenceConfidence,
+                minPoseDetectionConfidence: config.minPoseDetectionConfidence,
+                minPoseSuppressionThreshold: config.minPoseSuppressionThreshold,
+                minPosePresenceConfidence: config.minPosePresenceConfidence,
+                minHandLandmarksConfidence: config.minHandLandmarksConfidence,
+                outputFaceBlendshapes: config.outputFaceBlendshapes,
+                outputPoseSegmentationMasks: config.outputPoseSegmentationMasks,
+                videoDelegate: self
+            )
+        case .liveStream:
+            holisticLandmarkerService = HolisticLandmarkerService.liveStreamHolisticLandmarkerService(
+                modelPath: config.model.modelPath,
+                minFaceDetectionConfidence: config.minFaceDetectionConfidence,
+                minFaceSuppressionThreshold: config.minFaceSuppressionThreshold,
+                minFacePresenceConfidence: config.minFacePresenceConfidence,
+                minPoseDetectionConfidence: config.minPoseDetectionConfidence,
+                minPoseSuppressionThreshold: config.minPoseSuppressionThreshold,
+                minPosePresenceConfidence: config.minPosePresenceConfidence,
+                minHandLandmarksConfidence: config.minHandLandmarksConfidence,
+                outputFaceBlendshapes: config.outputFaceBlendshapes,
+                outputPoseSegmentationMasks: config.outputPoseSegmentationMasks,
+                liveStreamDelegate: self
+            )
+        @unknown default:
+            fatalError("Unknown running mode")
+        }
+    }
+}
